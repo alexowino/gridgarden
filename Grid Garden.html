@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Garden</title>
+<style>
+:root{color-scheme:dark;--bg:#101326;--panel:#1b2040;--line:#343b68;--text:#f5f5ff;--muted:#aab1d4;--cyan:#69e7ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#242858,#101326 58%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);display:flex;justify-content:center;padding:22px 12px 30px}
+.app{width:min(100%,380px)}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px}
+h1{font-size:clamp(1.8rem,7vw,2.5rem);line-height:1;margin:0;font-weight:900;letter-spacing:.03em}
+h1 span{color:#8b8cff}
+.sub{color:var(--muted);font-size:.88rem;margin-top:7px}
+button{font:inherit;cursor:pointer}
+.small-btn{border:1px solid var(--line);border-radius:12px;background:#20264a;color:white;padding:10px 13px;font-weight:700}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}
+.stat{background:#1a1f3c;border:1px solid var(--line);border-radius:15px;padding:11px 15px}
+.stat label{display:block;color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.1em}
+.stat strong{font-size:1.45rem;font-variant-numeric:tabular-nums}
+.board-wrap{position:relative;background:#171b35;border:1px solid #414977;border-radius:18px;padding:9px;box-shadow:0 18px 60px #0005}
+#board{width:100%;height:auto;aspect-ratio:1/1;display:block;touch-action:manipulation}
+.overlay{position:absolute;inset:9px;border-radius:12px;background:#101326e8;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:25px;gap:12px}
+.overlay.hidden{display:none}
+.overlay h2{font-size:2rem;margin:0}
+.overlay p{color:#c1c7e6;margin:0;max-width:290px;line-height:1.5}
+.primary{border:0;border-radius:13px;padding:13px 23px;font-weight:900;color:#101326;background:linear-gradient(135deg,#83f4ff,#a7a1ff);box-shadow:0 6px 24px #69e7ff33}
+.pieces-title{display:flex;align-items:center;justify-content:space-between;margin:17px 3px 10px}
+.pieces-title strong{font-size:1rem}
+.pieces-title span{font-size:.8rem;color:var(--muted)}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.piece-slot{height:86px;border:1px solid var(--line);background:#1a1f3b;border-radius:15px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;position:relative}
+.piece-slot.selected{border:2px solid var(--cyan);background:#20294b;box-shadow:0 0 0 2px #69e7ff22}
+.piece-slot.used{opacity:.22}
+.piece-slot canvas{width:84px;height:70px;display:block}
+.help{color:var(--muted);font-size:.82rem;line-height:1.5;text-align:center;margin:14px 8px 0}
+.toast{min-height:24px;text-align:center;color:#8ef3ff;font-weight:750;font-size:.9rem;margin-top:8px}
+@media(max-width:380px){body{padding:14px 8px}.piece-slot{height:76px}.piece-slot canvas{width:72px;height:60px}.stat strong{font-size:1.25rem}}
+[hidden]{display:none!important}
+.screen{position:fixed;inset:0;z-index:20;background:radial-gradient(ellipse at top,#242858,#101326 60%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;transition:opacity .5s,visibility 0s}
+.screen.hidden{opacity:0;pointer-events:none;visibility:hidden;transition:opacity .5s,visibility 0s .5s}
+.logo{font-size:clamp(2.2rem,10vw,3.2rem);font-weight:900;letter-spacing:.04em;margin:0}.logo span{color:#8b8cff}
+.col{display:flex;flex-direction:column;align-items:center;gap:12px}
+.menu-btn{width:min(80vw,260px)}
+.bar{width:min(70vw,260px);height:10px;border-radius:9px;background:#20264a;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#83f4ff,#a7a1ff);transition:width .2s}
+.tip{color:var(--muted);font-size:.88rem;min-height:1.3em;margin:0}
+.loadblocks{display:grid;grid-template-columns:repeat(3,24px);gap:5px}
+.loadblocks b{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#83f4ff,#a7a1ff);animation:pop 1.2s infinite}
+.loadblocks b:nth-child(2n){animation-delay:.2s}.loadblocks b:nth-child(3n){animation-delay:.4s}
+@keyframes pop{0%,100%{transform:scale(.6);opacity:.35}50%{transform:scale(1);opacity:1}}
+.levels{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;width:min(90vw,360px)}
+.lvl{aspect-ratio:1;border-radius:14px;border:1px solid var(--line);background:#1a1f3c;color:#fff;font-weight:900;font-size:1.1rem}
+.lvl.done{background:#1f3a4a;border-color:var(--cyan)}.lvl:disabled{opacity:.3;cursor:default}
+.goal{position:relative;display:flex;justify-content:space-between;align-items:center;overflow:hidden;background:#1a1f3c;border:1px solid var(--line);border-radius:13px;padding:10px 14px 13px;margin-bottom:12px;font-size:.88rem;font-weight:700}
+.goal i{position:absolute;left:0;bottom:0;height:4px;background:linear-gradient(90deg,#83f4ff,#a7a1ff);transition:width .3s}
+:root{--bg:#08201f;--panel:#0f3331;--line:#2b6b64;--text:#f4fffb;--muted:#9fcfc5;--cyan:#ffd166}
+body{background:radial-gradient(ellipse at top,#1d5a52,#08201f 60%)}
+h1 span,.logo span{color:var(--cyan)}
+.small-btn{background:#164642}
+.stat{background:#0f3331}
+.board-wrap{background:#0c2b29;border:1px solid #3a8277}
+.overlay{background:#08201fe8}.overlay p{color:#bfe3da}
+.primary{color:#08201f;background:linear-gradient(135deg,#ffd166,#ff8f6b);box-shadow:0 6px 24px #ffd16633}
+.tray{margin-top:16px}
+.piece-slot{background:#0f3331}.piece-slot.selected{background:#1a4a45;box-shadow:0 0 0 2px #ffd16633}
+.screen{background:radial-gradient(ellipse at top,#1d5a52,#08201f 60%)}
+.bar{background:#0f3331}.bar i,.loadblocks b{background:linear-gradient(135deg,#ffd166,#ff8f6b)}
+.lvl{background:#0f3331}.lvl.done{background:#1a4a45}
+.goal{display:block;background:#0f3331;padding:11px 14px 13px}
+.goal .row{display:flex;justify-content:space-between;margin-bottom:9px}
+.goal .track{height:14px;border-radius:99px;background:#08201f;border:1px solid var(--line);overflow:hidden}
+.goal .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#ffd166,#ff8f6b);transition:width .3s}
+.tgrid{display:grid;grid-template-columns:repeat(5,30px);gap:4px;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+.tgrid i{width:30px;height:30px;border-radius:7px;background:#143d3a}
+.tgrid .tx{background:#f97316}.tgrid .to{background:transparent;box-shadow:inset 0 0 0 3px var(--cyan)}
+.tgrid .tc{background:linear-gradient(135deg,#ffd166,#ff8f6b);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.4;transform:scale(.88)}}
+#tutorial h2{margin:0;font-size:1.7rem}
+#tutorial .tip{font-size:1rem;line-height:1.5;max-width:290px}
+.dots{display:flex;gap:7px}.dots b{width:8px;height:8px;border-radius:50%;background:var(--line)}.dots b.on{background:var(--cyan)}
+.board-wrap{border:4px solid #000}
+.overlay{transition:opacity .7s}.overlay.fade{opacity:0;pointer-events:none}
+.loadblocks b{background:none;font-size:22px;line-height:24px;text-align:center}
+.pop{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;font-weight:900;font-size:1.5rem;color:var(--cyan);text-shadow:0 2px 0 #000;opacity:0;pointer-events:none;white-space:nowrap}
+.pop.show{animation:popup 1.6s ease-out}
+@keyframes popup{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-90%) scale(1)}}
+.stats{grid-template-columns:repeat(3,1fr)}.stat{padding:10px 12px}.stat.hot strong{color:var(--cyan)}
+header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+#newGame{justify-self:start}#mute{justify-self:end}
+.counter{text-align:center;font-size:2.4rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+#overlayText{white-space:pre-line}
+.ghost{position:fixed;left:0;top:0;z-index:15;pointer-events:none;opacity:.6;filter:drop-shadow(0 6px 10px #0008)}
+.levels{max-height:min(55vh,420px);overflow-y:auto;padding:4px}
+.counter.flash{animation:flash .5s ease-in-out infinite}
+@keyframes flash{50%{transform:scale(1.3);color:var(--cyan);text-shadow:0 0 18px var(--cyan)}}
+#pop{left:0;top:0;right:0;bottom:0;transform:none;opacity:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:1rem;animation:none}
+.pp{font-weight:900;font-size:1.8rem;line-height:1.15;color:var(--cyan);text-shadow:0 3px 0 #000;white-space:nowrap;animation:ppup 1.6s ease-out forwards}
+.pp.perfect{font-size:2.3rem;color:#ff8fd0;text-shadow:0 3px 0 #8a1f5c,0 0 16px #ff8fd0aa}
+.pp.combo{color:#ffd166;text-shadow:0 3px 0 #7a4a00,0 0 14px #ffd16699}
+@keyframes ppup{0%{opacity:0;transform:scale(.5)}12%{opacity:1;transform:scale(1.18)}25%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
+.fx{position:absolute;inset:9px;z-index:1;pointer-events:none;overflow:hidden}
+.tu{position:absolute;font-size:1.5rem;opacity:0;animation:tu 1.2s ease-out forwards}
+@keyframes tu{0%{opacity:0;transform:translate(-50%,-30%) scale(.4)}25%{opacity:1;transform:translate(-50%,-55%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-150%) scale(1)}}
+</style>
+</head>
+<body>
+<main class="app">
+<header>
+ <button class="small-btn" id="newGame">☰ Menu</button>
+ <div class="counter" id="score">0</div>
+ <button class="small-btn" id="mute" aria-label="Toggle sound">🔊</button>
+</header>
+<div class="goal" id="goal" hidden></div>
+<div class="board-wrap">
+ <canvas id="board" width="480" height="480" aria-label="8 by 8 block puzzle board"></canvas>
+ <div class="fx" id="fx"></div>
+ <div class="pop" id="pop"></div>
+ <div class="overlay" id="overlay">
+   <h2 id="overlayTitle">Ready to bloom?</h2>
+   <p id="overlayText">Place the three shapes on the board. Fill a whole row or column to clear it and score points.</p>
+   <button class="primary" id="startBtn">Let's play</button>
+ </div>
+</div>
+<div class="tray" id="tray"></div>
+<div class="toast" id="toast" aria-live="polite" hidden></div>
+</main>
+<div id="menu" class="screen hidden">
+ <h1 class="logo">GRID <span>GARDEN</span></h1>
+ <div id="menuMain" class="col"><button class="primary menu-btn" id="menuCampaign">Campaign</button><button class="small-btn menu-btn" id="menuEndless">Endless</button><button class="small-btn menu-btn" id="menuHow">How to play</button></div>
+ <div id="menuLevels" class="col" hidden><p class="tip">Choose a level</p><div class="levels" id="levelGrid"></div><button class="small-btn" id="menuBack">← Back</button></div>
+</div>
+<div id="loader" class="screen">
+ <h1 class="logo">GRID <span>GARDEN</span></h1>
+ <div class="loadblocks"><b>🌸</b><b>🌼</b><b>🌷</b><b>🌻</b><b>🌹</b><b>🌺</b><b>🌷</b><b>🌸</b><b>🌼</b></div>
+ <div class="bar"><i id="barFill"></i></div>
+ <p class="tip" id="tip">Loading…</p>
+</div>
+<div id="tutorial" class="screen hidden">
+ <div id="tutArt"></div>
+ <h2 id="tutTitle"></h2>
+ <p class="tip" id="tutText"></p>
+ <div class="dots" id="tutDots"></div>
+ <div class="col"><button class="primary menu-btn" id="tutNext">Next</button><button class="small-btn" id="tutSkip">Skip</button></div>
+</div>
+<canvas id="ghost" class="ghost" hidden></canvas>
+<script>
+(() => {
+const N=8, canvas=document.getElementById('board'), ctx=canvas.getContext('2d');
+const tray=document.getElementById('tray'), scoreEl=document.getElementById('score');
+const overlay=document.getElementById('overlay'), titleEl=document.getElementById('overlayTitle'), textEl=document.getElementById('overlayText'), startBtn=document.getElementById('startBtn'), toast=document.getElementById('toast');
+const shapes=[
+ {color:'#4ade80',cells:[[1,0],[0,1],[1,1],[1,2]]},           // green T (vertical)
+ {color:'#22d3ee',cells:[[0,0],[1,0],[1,1],[2,1]]},           // cyan Z
+ {color:'#fbbf24',cells:[[0,0],[1,0],[2,0]]},                 // yellow line of 3
+ {color:'#a78bfa',cells:[[0,0],[1,1],[2,2]]},                 // purple diagonal
+ {color:'#ef4444',cells:[[0,0],[0,1],[1,1],[2,1]]},           // red J
+ {color:'#f97316',cells:[[0,0],[1,0],[0,1],[1,1]]},           // orange 2x2
+ {color:'#f97316',cells:[[0,0]]},                             // single block
+ {color:'#fbbf24',cells:[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]]}, // yellow 3x3
+ {color:'#a78bfa',cells:[[1,0],[0,1],[1,1],[2,1]]},           // purple T
+ {color:'#3b82f6',cells:[[1,0],[0,1],[1,1],[0,2]]},           // blue S (vertical)
+ {color:'#ef4444',cells:[[0,0],[0,1],[0,2],[0,3]]},           // red line of 4 (vertical)
+ {color:'#3b82f6',cells:[[0,0],[0,1],[0,2],[1,2]]}            // blue L
+];
+let board, pieces, selected=-1, score=0, best=0, running=false, gameEnded=false;
+let dragging=false, dragPointer=null, suppressSlotClick=false, hover=null;
+let mode='endless', level=0, linesCleared=0, cleared=0, won=false, introT=0;
+let audioCtx=null, muted=false, perfectNow=false, animId=0, perfectCount=0, sincePerfect=0, combo=0, misses=0, maxCombo=0, setOk=true, setClears=0, perfectCd=0;
+try{muted=localStorage.getItem('blockBloomMute')==='1'}catch{}
+const SFX={
+ select:[[660,0,.06]],
+ place:[[220,0,.09,'triangle'],[330,.04,.07,'triangle']],
+ clear:[[523,0,.1],[659,.08,.1],[784,.16,.1],[1047,.24,.2]],
+ perfect:[[523,0,.1],[659,.08,.1],[784,.16,.1],[1047,.24,.1],[1319,.34,.1],[1568,.44,.3]],
+ win:[[523,0,.12],[659,.12,.12],[784,.24,.12],[1047,.36,.35]],
+ lose:[[392,0,.2,'triangle'],[330,.2,.2,'triangle'],[262,.4,.4,'triangle']],
+ bad:[[150,0,.14,'square']]
+};
+function sfx(name){
+ if(muted)return;
+ try{
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  const now=audioCtx.currentTime;
+  SFX[name].forEach(([f,t,d,type='sine'])=>{
+   const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+   o.type=type;o.frequency.value=f;
+   g.gain.setValueAtTime(.0001,now+t);g.gain.exponentialRampToValueAtTime(.16,now+t+.01);g.gain.exponentialRampToValueAtTime(.0001,now+t+d);
+   o.connect(g);g.connect(audioCtx.destination);o.start(now+t);o.stop(now+t+d+.02);
+  });
+ }catch{}
+}
+const LEVELS=[['lines',2,0],['score',50,0],['lines',4,6],['score',100,8],['lines',6,10],['score',160,12],['lines',8,14],['score',220,16],['lines',10,18],['lines',14,20],
+['score',260,10],['lines',12,12],['score',300,14],['lines',14,16],['score',340,18],['lines',16,18],['score',380,20],['lines',18,20],['score',420,22],['lines',20,22],
+['score',460,22],['lines',22,24],['score',500,24],['lines',24,24],['score',550,26],['lines',26,26],['score',600,26],['lines',28,28],['score',650,28],['lines',32,30]];
+try{const c=Math.floor(Number(localStorage.getItem('blockBloomCleared')));if(Number.isFinite(c))cleared=Math.max(0,Math.min(LEVELS.length,c))}catch{}
+try{const b=Number(localStorage.getItem('blockBloomBest'));if(Number.isFinite(b)&&b>0)best=Math.floor(b)}catch{}
+function rand(a){return Math.floor(Math.random()*a)}
+function lineLevel(){return mode==='campaign'&&LEVELS[level][0]==='lines'}
+function newHand(){
+ const hand=[newPiece(),newPiece(),newPiece()];
+ const cl=shapes.filter(s=>canLine(s.cells));
+ if(cl.length&&Math.random()<.8&&!hand.some(p=>canLine(p.cells))){
+  const sh=cl[rand(cl.length)];
+  hand[rand(3)]={cells:sh.cells.map(p=>p.slice()),color:sh.color,used:false};
+ }
+ return hand;
+}
+function canLine(cells){
+ const pc={cells};
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  if(!fits(pc,x,y))continue;
+  const L=completing(pc,x,y);
+  if(L.rows.length||L.cols.length)return true;
+ }
+ return false;
+}
+function newPiece(){
+ const w=shapes.map(s=>canLine(s.cells)?6:1),tot=w.reduce((a,b)=>a+b,0);
+ let r=Math.random()*tot,i=0;
+ while(i<w.length-1&&r>=w[i]){r-=w[i];i++}
+ const sh=shapes[i];
+ return {cells:sh.cells.map(p=>p.slice()),color:sh.color,used:false};
+}
+function newGame(showIntro=true){
+ dragging=false;dragPointer=null;suppressSlotClick=false;
+ board=Array.from({length:N},()=>Array(N).fill(null)); score=0; pieces=newHand(); selected=-1; running=!showIntro; gameEnded=false;
+ scoreEl.textContent=score; makeTray(); drawBoard(); toast.textContent='Choose a shape to begin.';
+ overlay.classList.toggle('hidden',!showIntro);
+ if(showIntro){titleEl.textContent='Ready to bloom?';textEl.textContent='Beat your best score. No timer, no pressure.';startBtn.textContent="Let's play";}
+}
+function roundedRect(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r);c.fill()}
+function drawBlock(c,x,y,size,color,alpha=1){
+ c.save();c.globalAlpha=alpha;
+ roundedRect(c,x+1.5,y+1.5,size-3,size-3,Math.max(3,size*.17));
+ c.fillStyle=color;c.fill();
+ c.fillStyle='#ffffff26';roundedRect(c,x+size*.12,y+size*.1,size*.76,size*.22,Math.max(2,size*.08));
+ c.strokeStyle='#ffffff20';c.lineWidth=1;c.strokeRect(x+2,y+2,size-4,size-4);
+ c.restore();
+}
+function drawOutline(cells,gx,gy,color){
+ const s=canvas.width/N,set=new Set(cells.map(([x,y])=>x+','+y));
+ ctx.save();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();
+ cells.forEach(([cx,cy])=>{
+  const x=(gx+cx)*s,y=(gy+cy)*s;
+  if(!set.has(cx+','+(cy-1))){ctx.moveTo(x,y);ctx.lineTo(x+s,y)}
+  if(!set.has(cx+','+(cy+1))){ctx.moveTo(x,y+s);ctx.lineTo(x+s,y+s)}
+  if(!set.has((cx-1)+','+cy)){ctx.moveTo(x,y);ctx.lineTo(x,y+s)}
+  if(!set.has((cx+1)+','+cy)){ctx.moveTo(x+s,y);ctx.lineTo(x+s,y+s)}
+ });
+ ctx.stroke();ctx.restore();
+}
+function drawBoard(hide){
+ const s=canvas.width/N;ctx.clearRect(0,0,canvas.width,canvas.height);
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  ctx.fillStyle='#143d3a';roundedRect(ctx,x*s+2,y*s+2,s-4,s-4,5);
+  if(board[y][x]&&!hide)drawBlock(ctx,x*s,y*s,s,board[y][x]);
+ }
+ if(dragging && selected>=0 && dragPointer && pieces[selected] && !pieces[selected].used){
+  const rect=canvas.getBoundingClientRect();
+  const px=(dragPointer.x-rect.left)/rect.width*canvas.width;
+  const py=(dragPointer.y-rect.top)/rect.height*canvas.height;
+  const gx=Math.floor(px/s), gy=Math.floor(py/s), piece=pieces[selected];
+  const valid=fits(piece,gx,gy);
+  piece.cells.forEach(([cx,cy])=>{
+   const x=gx+cx,y=gy+cy;
+   if(x>=0&&x<N&&y>=0&&y<N)drawBlock(ctx,x*s,y*s,s,valid?piece.color:'#fb7185',.65);
+  });
+  drawOutline(piece.cells,gx,gy,valid?'#ffd166':'#fb7185');
+ } else if(hover){
+  const p=selected>=0&&pieces[selected]&&!pieces[selected].used?pieces[selected]:null;
+  if(p){
+   const ok=fits(p,hover.x,hover.y);
+   if(ok){
+    const L=completing(p,hover.x,hover.y);
+    ctx.save();ctx.fillStyle='#ffffff40';
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(board[y][x]&&(L.rows.includes(y)||L.cols.includes(x)))roundedRect(ctx,x*s+3,y*s+3,s-6,s-6,5);
+    ctx.restore();
+    const pops=[];
+    p.cells.forEach(([cx,cy])=>{const x=hover.x+cx,y=hover.y+cy;if(L.rows.includes(y)||L.cols.includes(x))pops.push([x,y]);else drawBlock(ctx,x*s,y*s,s,p.color,.35)});
+    pops.forEach(([x,y])=>{ctx.save();ctx.shadowColor='#ffd166';ctx.shadowBlur=18;drawBlock(ctx,x*s-s*.08,y*s-s*.08,s*1.16,p.color,1);ctx.restore()});
+   }
+   drawOutline(p.cells,hover.x,hover.y,ok?'#ffd166':'#fb7185');
+  } else drawOutline([[0,0]],hover.x,hover.y,'#ffd166');
+ }
+}
+function makeTray(){
+ updateGhost();
+ tray.innerHTML='';
+ pieces.forEach((p,i)=>{
+  const slot=document.createElement('button');slot.className='piece-slot'+(p.used?' used':'')+(selected===i?' selected':'');
+  slot.setAttribute('aria-label',p.used?'Used shape':'Select shape '+(i+1));slot.disabled=p.used||!running;
+  const cv=document.createElement('canvas');cv.width=120;cv.height=100;slot.appendChild(cv);
+  if(!p.used){
+   const c=cv.getContext('2d'), maxX=Math.max(...p.cells.map(a=>a[0]))+1,maxY=Math.max(...p.cells.map(a=>a[1]))+1;
+   const size=Math.min(20,74/maxX,68/maxY),ox=(120-maxX*size)/2,oy=(100-maxY*size)/2;
+   p.cells.forEach(([x,y])=>drawBlock(c,ox+x*size,oy+y*size,size,p.color));
+  }
+  slot.addEventListener('click',e=>{
+   if(suppressSlotClick){suppressSlotClick=false;e.preventDefault();return;}
+   if(!running||p.used)return;sfx('select');selected=selected===i?-1:i;makeTray();drawBoard();toast.textContent=selected<0?'Choose a shape to begin.':'Now tap a spot on the board to place it.';
+  });
+  tray.appendChild(slot);
+ });
+}
+function fits(piece, gx, gy){
+ return piece.cells.every(([x,y])=>gx+x>=0&&gx+x<N&&gy+y>=0&&gy+y<N&&!board[gy+y][gx+x]);
+}
+function place(piece,gx,gy){
+ const goodMove=isBestMove(piece,gx,gy);if(!goodMove)setOk=false;
+ piece.cells.forEach(([x,y])=>board[gy+y][gx+x]=piece.color);
+ score+=piece.cells.length;sincePerfect++;
+ const clearRows=[],clearCols=[];
+ for(let y=0;y<N;y++)if(board[y].every(Boolean))clearRows.push(y);
+ for(let x=0;x<N;x++)if(board.every(row=>row[x]))clearCols.push(x);
+ const clearSet=new Set();
+ clearRows.forEach(y=>{for(let x=0;x<N;x++)clearSet.add(y*N+x)});
+ clearCols.forEach(x=>{for(let y=0;y<N;y++)clearSet.add(y*N+x)});
+ if(clearSet.size){
+  score+=clearSet.size*2;combo++;misses=0;
+  setClears++;
+  if(combo>=2){const cb=(combo-1)*10;score+=cb;pop('Combo x'+combo+' +'+cb,'combo');flashScore()}
+  spawnThumbs([...clearSet]);
+  clearSet.forEach(k=>board[Math.floor(k/N)][k%N]=null);
+  const lines=clearRows.length+clearCols.length;linesCleared+=lines;
+  if(board.every(r=>r.every(c=>!c))){
+   const bonus=sincePerfect>=5?PERFECT:0;
+   score+=bonus;sincePerfect=0;
+   pop(bonus?'All clear! +'+bonus:'Board cleared!','perfect');sfx(bonus?'perfect':'clear');perfectNow=true
+  }else sfx('clear');
+  toast.textContent=`Bloom! ${lines} line${lines===1?'':'s'} cleared · +${clearSet.size*2} bonus`;
+ } else {toast.textContent='Nice placement! Keep building.';sfx('place');misses++;if(misses>=2)combo=0;if(goodMove&&!lineLevel())spawnThumbs(piece.cells.map(([x,y])=>(gy+y)*N+gx+x))}
+ if(pieces.filter(p=>!p.used).length===1&&setOk&&perfectCd===0&&!lineLevel()){score+=20;perfectCd=3;pop('Perfect! +20','perfect');sfx('win')}
+ scoreEl.textContent=score;
+ if(mode==='endless'&&score>best){best=score;try{localStorage.setItem('blockBloomBest',best)}catch{}}
+ piece.used=true;selected=-1;updateCombo();
+ if(pieces.every(p=>p.used)){if(perfectCd>0)perfectCd--;setOk=true;setClears=0;pieces=newHand()}
+ makeTray();drawBoard();updateGoal();
+ const pn=perfectNow;perfectNow=false;
+ if(checkWin())return;
+ if(!anyMoves()){endGame();return}
+ if(pn)playFill();
+}
+function anyMoves(){
+ for(const p of pieces){if(p.used)continue;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(fits(p,x,y))return true;
+ }
+ return false;
+}
+function endGame(){
+ running=false;gameEnded=true;makeTray();sfx('lose');scoreEl.classList.remove('flash');
+ overlay.classList.remove('hidden');titleEl.textContent='Garden full!';
+ textEl.textContent=`Score ${score}\nBest ${best}\nBest combo x${maxCombo}`;
+ startBtn.textContent=mode==='campaign'?'Retry level':'Play again';if(mode==='campaign')textEl.textContent=`No more shapes fit.\nScore ${score}\nBest combo x${maxCombo}`;
+}
+function clickBoard(e){
+ if(!running||selected<0)return;
+ const rect=canvas.getBoundingClientRect(), x=(e.clientX-rect.left)/rect.width*canvas.width,y=(e.clientY-rect.top)/rect.height*canvas.height;
+ const piece=pieces[selected];const gx=piece?Math.round(x/(canvas.width/N)-bw(piece)/2):0,gy=piece?Math.round(y/(canvas.height/N)-bh(piece)/2):0;
+ if(!piece||piece.used)return;
+ if(!fits(piece,gx,gy)){toast.textContent='That shape does not fit there. Try another spot.';sfx('bad');return;}
+ place(piece,gx,gy);
+}
+canvas.addEventListener('click',clickBoard);
+function setHover(e){
+ const r=canvas.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width*N,fy=(e.clientY-r.top)/r.height*N;
+ const p=selected>=0&&pieces[selected]&&!pieces[selected].used?pieces[selected]:null;
+ const gx=p?Math.round(fx-bw(p)/2):Math.floor(fx),gy=p?Math.round(fy-bh(p)/2):Math.floor(fy);
+ hover=(fx>=0&&fx<N&&fy>=0&&fy<N)?{x:gx,y:gy}:null;
+}
+canvas.addEventListener('pointermove',e=>{if(dragging||!running)return;setHover(e);drawBoard()});
+canvas.addEventListener('pointerleave',()=>{hover=null;drawBoard()});
+startBtn.addEventListener('click',()=>{
+ if(won){if(level+1<LEVELS.length)startMode('campaign',level+1);else showMenu();return}
+ if(gameEnded){startMode(mode,level);return}
+ overlay.classList.add('hidden');playFill();
+});
+document.getElementById('newGame').addEventListener('click',()=>showMenu());
+const muteBtn=document.getElementById('mute');
+muteBtn.textContent=muted?'🔇':'🔊';
+muteBtn.addEventListener('click',()=>{muted=!muted;muteBtn.textContent=muted?'🔇':'🔊';try{localStorage.setItem('blockBloomMute',muted?'1':'0')}catch{}sfx('select')});
+const menu=document.getElementById('menu');
+const bw=p=>Math.max(...p.cells.map(c=>c[0]))+1,bh=p=>Math.max(...p.cells.map(c=>c[1]))+1;
+const ghost=document.getElementById('ghost'),gctx=ghost.getContext('2d');
+let gpos=null,gKey='';
+function updateGhost(){
+ const p=selected>=0?pieces[selected]:null;
+ if(!p||p.used||!running||!gpos){ghost.hidden=true;return}
+ const cs=canvas.getBoundingClientRect().width/N,dpr=window.devicePixelRatio||1;
+ const mx=Math.max(...p.cells.map(c=>c[0]))+1,my=Math.max(...p.cells.map(c=>c[1]))+1;
+ const key=p.color+'|'+cs.toFixed(1)+'|'+JSON.stringify(p.cells);
+ if(key!==gKey){
+  gKey=key;ghost.width=Math.ceil(mx*cs*dpr);ghost.height=Math.ceil(my*cs*dpr);
+  ghost.style.width=mx*cs+'px';ghost.style.height=my*cs+'px';
+  gctx.setTransform(dpr,0,0,dpr,0,0);
+  p.cells.forEach(([x,y])=>drawBlock(gctx,x*cs,y*cs,cs,p.color));
+ }
+ ghost.hidden=false;
+ ghost.style.transform=`translate(${gpos.x-mx*cs/2}px,${gpos.y-my*cs/2}px)`;
+}
+window.addEventListener('pointermove',e=>{gpos=e.pointerType==='touch'?null:{x:e.clientX,y:e.clientY};updateGhost()});
+document.documentElement.addEventListener('pointerleave',()=>{gpos=null;updateGhost()});
+function updateCombo(){if(combo>maxCombo)maxCombo=combo;scoreEl.classList.toggle('flash',combo>=2)}
+function flashScore(){scoreEl.classList.remove('flash');void scoreEl.offsetWidth;scoreEl.classList.add('flash')}
+function scoreMove(piece,gx,gy,others){
+ const b=board.map(r=>r.slice());
+ piece.cells.forEach(([x,y])=>{b[gy+y][gx+x]=1});
+ let lines=0;const rc=[],cc=[];
+ for(let i=0;i<N;i++){
+  if(b[i].every(Boolean)){lines++;rc.push(i)}
+  if(b.every(r=>r[i])){lines++;cc.push(i)}
+ }
+ rc.forEach(y=>{for(let x=0;x<N;x++)b[y][x]=null});
+ cc.forEach(x=>{for(let y=0;y<N;y++)b[y][x]=null});
+ const fitsOn=q=>{for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(q.cells.every(([cx,cy])=>x+cx<N&&y+cy<N&&!b[y+cy][x+cx]))return true;return false};
+ let fit=0;others.forEach(q=>{if(fitsOn(q))fit++});
+ const seen=Array.from({length:N},()=>Array(N).fill(false));let dead=0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  if(b[y][x]||seen[y][x])continue;
+  const st=[[x,y]];seen[y][x]=true;let n=0;
+  while(st.length){
+   const [px,py]=st.pop();n++;
+   [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{const nx=px+dx,ny=py+dy;if(nx>=0&&nx<N&&ny>=0&&ny<N&&!b[ny][nx]&&!seen[ny][nx]){seen[ny][nx]=true;st.push([nx,ny])}});
+  }
+  if(n<3)dead+=n;
+ }
+ let per=0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  if(x+1<N&&!b[y][x]!==!b[y][x+1])per++;
+  if(y+1<N&&!b[y][x]!==!b[y+1][x])per++;
+ }
+ return lines*100+fit*40-dead*10-per*2;
+}
+function isBestMove(piece,gx,gy){
+ const others=pieces.filter(q=>!q.used&&q!==piece);
+ const me=scoreMove(piece,gx,gy,others);
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  if(!fits(piece,x,y))continue;
+  if(scoreMove(piece,x,y,others)>me+2)return false;
+ }
+ return true;
+}
+function completing(piece,gx,gy){
+ const set=new Set(piece.cells.map(([cx,cy])=>(gy+cy)*N+gx+cx));
+ const f=(x,y)=>board[y][x]||set.has(y*N+x);
+ const rows=[],cols=[];
+ for(let i=0;i<N;i++){
+  let r=true,c=true;
+  for(let j=0;j<N;j++){if(!f(j,i))r=false;if(!f(i,j))c=false}
+  if(r)rows.push(i);
+  if(c)cols.push(i);
+ }
+ return {rows,cols};
+}
+function playFill(){
+ const id=++animId;
+ running=false;hover=null;makeTray();
+ const s=canvas.width/N,STAG=90,FALL=300,HOLD=200,VAN=250,VSTAG=40;
+ const vanStart=(N-1)*STAG+FALL+HOLD,total=vanStart+VAN+(N-1)*VSTAG;
+ const cols=['#4ade80','#22d3ee','#fbbf24','#a78bfa','#ef4444','#f97316','#3b82f6','#fbbf24'];
+ let landed=0,sounded=false,T0=null;
+ function frame(now){
+  if(id!==animId)return;
+  if(T0===null)T0=now;
+  const t=now-T0;
+  drawBoard(t<vanStart);
+  for(let r=N-1;r>=0;r--){
+   const k=N-1-r,ts=k*STAG;
+   if(t<ts)continue;
+   const p=Math.min(1,(t-ts)/FALL);
+   if(p>=1&&landed<=k){landed=k+1;sfx('select')}
+   const y=-s+(r*s+s)*p*p;
+   let alpha=1,sz=s;
+   if(t>vanStart){const vp=Math.min(1,Math.max(0,(t-vanStart-r*VSTAG)/VAN));alpha=1-vp;sz=s*(1-.4*vp)}
+   if(alpha<=0)continue;
+   for(let x=0;x<N;x++)drawBlock(ctx,x*s+(s-sz)/2,y+(s-sz)/2,sz,cols[r%cols.length],alpha);
+  }
+  if(t>vanStart&&!sounded){sounded=true;sfx('clear')}
+  if(t<total)requestAnimationFrame(frame);
+  else{running=true;drawBoard();makeTray()}
+ }
+ requestAnimationFrame(frame);
+}
+const PERFECT=30,popEl=document.getElementById('pop');
+function pop(t,kind){const d=document.createElement('div');d.className='pp '+(kind||'');d.textContent=t;popEl.appendChild(d);setTimeout(()=>d.remove(),1700)}
+function spawnThumbs(keys){
+ const fx=document.getElementById('fx');
+ keys.slice(0,32).forEach((k,i)=>{
+  const s=document.createElement('span');s.className='tu';s.textContent='👍';
+  s.style.left=((k%N)+.5)/N*100+'%';s.style.top=(Math.floor(k/N)+.5)/N*100+'%';s.style.animationDelay=(i%8)*45+'ms';
+  fx.appendChild(s);setTimeout(()=>s.remove(),1700);
+ });
+}
+function updateGoal(){
+ const g=document.getElementById('goal');
+ if(mode!=='campaign'){g.hidden=true;return}
+ const [type,target]=LEVELS[level],cur=Math.min(type==='lines'?linesCleared:score,target);
+ g.hidden=false;
+ g.innerHTML=`<div class="row"><span>Level ${level+1} · ${type==='lines'?'Clear '+target+' lines':'Reach '+target+' points'}</span><b>${cur}/${target}</b></div><div class="track"><div class="fill" style="width:${cur/target*100}%"></div></div>`;
+}
+function checkWin(){
+ if(mode!=='campaign'||won||!running)return false;
+ const [type,target]=LEVELS[level];
+ if((type==='lines'?linesCleared:score)<target)return false;
+ won=true;running=false;makeTray();sfx('win');scoreEl.classList.remove('flash');
+ if(level+1>cleared){cleared=level+1;try{localStorage.setItem('blockBloomCleared',cleared)}catch{}}
+ const last=level+1>=LEVELS.length;
+ overlay.classList.remove('hidden');
+ titleEl.textContent=last?'Campaign complete! 🌸':'Fully bloomed!';
+ textEl.textContent=last?'Your garden is in full bloom.':'Nice work. Ready for the next one?';
+ startBtn.textContent=last?'Back to menu':'Next level';
+ return true;
+}
+function startMode(m,l=0){
+ mode=m;level=l;linesCleared=0;
+ menu.classList.add('hidden');
+ animId++;hover=null;perfectCount=0;sincePerfect=0;combo=0;misses=0;maxCombo=0;setOk=true;setClears=0;perfectCd=0;updateCombo();clearTimeout(introT);textEl.hidden=false;startBtn.hidden=false;overlay.classList.remove('fade');
+ newGame(true);won=false;
+ if(m==='campaign'){
+  const [type,target,pre]=LEVELS[l];
+  for(let k=0;k<pre;){const x=rand(N),y=rand(N);if(!board[y][x]){board[y][x]='#5b7f77';k++}}
+  drawBoard();
+  titleEl.textContent='Level '+(l+1);
+  textEl.textContent=type==='lines'?`Clear ${target} lines to win.`:`Reach ${target} points to win.`;
+  startBtn.textContent='Start';
+ }else{
+  titleEl.textContent='Ready to bloom?';textEl.hidden=true;startBtn.hidden=true;
+  introT=setTimeout(()=>{
+   overlay.classList.add('fade');{const id=animId;setTimeout(()=>{if(id===animId)playFill()},450)}
+   introT=setTimeout(()=>{overlay.classList.add('hidden');overlay.classList.remove('fade');textEl.hidden=false;startBtn.hidden=false},750);
+  },1300);
+ }
+ updateGoal();
+}
+function showMenu(panel='main'){
+ document.getElementById('menuMain').hidden=panel!=='main';
+ document.getElementById('menuLevels').hidden=panel!=='levels';
+ const g=document.getElementById('levelGrid');g.innerHTML='';
+ LEVELS.forEach((_,i)=>{const b=document.createElement('button');b.className='lvl'+(i<cleared?' done':'');b.textContent=i+1;b.disabled=i>cleared;b.onclick=()=>startMode('campaign',i);g.appendChild(b)});
+ menu.classList.remove('hidden');
+ const cur=g.children[Math.min(cleared,LEVELS.length-1)];if(cur&&cur.scrollIntoView)cur.scrollIntoView({block:'nearest'});
+}
+const TUT=[
+ {t:'Pick a shape',d:'Tap one of the three shapes under the board to select it.',g:['.....','..x..','.xxx.','.....','.....']},
+ {t:'Tap to place',d:'Move over the board to see an outline, then tap a cell to drop the shape there.',g:['x....','xx...','.....','..ooo','...o.']},
+ {t:'Make it bloom',d:'Fill a whole row or column and it blooms away, scoring you points.',g:['.....','.....','.....','..x..','ccccc']},
+ {t:'Win the level',d:'Each campaign level has a goal. If no shape fits on the board, you lose, so plan ahead.',g:null}
+];
+let tStep=0,tDone=null,tSeen=false;
+try{tSeen=localStorage.getItem('blockBloomTut')==='1'}catch{}
+const tut=document.getElementById('tutorial');
+function renderTut(){
+ const s=TUT[tStep];
+ document.getElementById('tutArt').innerHTML=s.g?`<div class="tgrid">${s.g.join('').split('').map(c=>`<i class="t${c==='.'?'e':c}"></i>`).join('')}</div>`:`<div class="goal" style="width:250px;text-align:left"><div class="row"><span>Level 1 · Clear 4 lines</span><b>2/4</b></div><div class="track"><div class="fill" style="width:50%"></div></div></div>`;
+ document.getElementById('tutTitle').textContent=s.t;
+ document.getElementById('tutText').textContent=s.d;
+ document.getElementById('tutDots').innerHTML=TUT.map((_,i)=>`<b class="${i===tStep?'on':''}"></b>`).join('');
+ document.getElementById('tutNext').textContent=tStep===TUT.length-1?'Got it!':'Next';
+}
+function showTutorial(done){tStep=0;tDone=done;renderTut();tut.classList.remove('hidden')}
+function endTutorial(){tut.classList.add('hidden');tSeen=true;try{localStorage.setItem('blockBloomTut','1')}catch{}const d=tDone;tDone=null;if(d)d()}
+document.getElementById('tutNext').onclick=()=>{if(tStep<TUT.length-1){tStep++;renderTut()}else endTutorial()};
+document.getElementById('tutSkip').onclick=endTutorial;
+const go=fn=>()=>tSeen?fn():showTutorial(fn);
+document.getElementById('menuCampaign').onclick=go(()=>showMenu('levels'));
+document.getElementById('menuEndless').onclick=go(()=>startMode('endless'));
+document.getElementById('menuHow').onclick=()=>showTutorial(null);
+document.getElementById('menuBack').onclick=()=>showMenu('main');
+const tips=['Fill a whole row or column to make it bloom.','Plan ahead: big shapes need room to grow.','Hover the garden to preview where a shape lands.','New campaign levels unlock as your garden grows.'];
+(function load(){
+ const fill=document.getElementById('barFill'),tip=document.getElementById('tip'),ld=document.getElementById('loader');
+ tip.textContent=tips[rand(tips.length)];
+ let p=0;
+ const t=setInterval(()=>{p=Math.min(100,p+8+rand(14));fill.style.width=p+'%';if(p>=100){clearInterval(t);setTimeout(()=>{ld.classList.add('hidden');showMenu()},300)}},160);
+})();
+newGame(true);
+})();
+</script>
+</body>
+</html>
